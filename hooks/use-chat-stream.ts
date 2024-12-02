@@ -5,6 +5,7 @@ import { ChatMessage, SendMessageRequest, Citation, DocumentReference, ChatSessi
 import { useSessionStore } from '@/lib/stores/session-store';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useToast } from '@/hooks/use-toast';
+import { SearchOptions } from '@/components/chat/search-settings';
 
 type StreamingState = 'creating-session' | 'analyzing-documents' | null;
 
@@ -31,7 +32,11 @@ export const useChatStream = () => {
     return () => cleanup();
   }, [cleanup]);
 
-  const sendMessage = useCallback(async (content: string, searchOptions?: SendMessageRequest['search_options']) => {
+  const sendMessage = useCallback(async (
+    content: string, 
+    searchOptions?: SearchOptions,
+    dataset_id?: string
+  ) => {
     if (isStreaming) {
       console.log('Already streaming, ignoring send request');
       return;
@@ -44,6 +49,7 @@ export const useChatStream = () => {
       message: content,
       session_id: activeChatId || undefined,
       search_options: searchOptions,
+      dataset_id
     };
 
     try {

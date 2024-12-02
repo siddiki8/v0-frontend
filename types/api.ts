@@ -79,12 +79,18 @@ export interface ChatSessionListResponse {
 
 // Search Options
 export interface SearchOptions {
-  search_type?: 'SIMILARITY' | 'HYBRID' | 'MMR';
+  search_type: "hybrid" | "similarity" | "mmr" | "threshold";
   k?: number;
-  fetch_k?: number;
-  lambda_mult?: number;
   rerank?: boolean;
-  alpha?: number;
+  // Hybrid search options
+  full_text_weight?: number;
+  semantic_weight?: number;
+  rrf_k?: number;
+  // MMR search options
+  lambda_mult?: number;
+  fetch_k?: number;
+  // Threshold search options
+  similarity_threshold?: number;
 }
 
 // API Request Types

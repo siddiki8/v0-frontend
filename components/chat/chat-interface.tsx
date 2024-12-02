@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useSessionStore } from '@/lib/stores/session-store'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { Send, User, Bot, FileText, Files } from 'lucide-react'
-import { SearchSettings } from '@/components/chat/search-settings'
+import { SearchSettings, SearchOptions, DatasetDisplayName, DATASET_MAP } from '@/components/chat/search-settings'
 import { ChatMessage, Citation } from '@/types/api'
 import ReactMarkdown from 'react-markdown'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -178,6 +178,13 @@ export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>({
+    search_type: "similarity",
+    k: 4,
+    rerank: true
+  })
+  const [dataset, setDataset] = useState<DatasetDisplayName>('finance')
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -226,7 +233,8 @@ export function ChatInterface() {
     setTimeout(scrollToBottom, 0)
 
     try {
-      await sendMessage(messageContent)
+      // Map the display name to the actual dataset ID
+      await sendMessage(messageContent, searchOptions, DATASET_MAP[dataset])
     } catch (error) {
       setError('Failed to send message')
       // Revert optimistic update on error
@@ -235,7 +243,7 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, activeChatId, messages, queryClient, sendMessage, setError, setIsLoading, scrollToBottom])
+  }, [input, isLoading, activeChatId, messages, queryClient, sendMessage, setError, setIsLoading, scrollToBottom, searchOptions, dataset])
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -275,7 +283,12 @@ export function ChatInterface() {
             disabled={isLoading || isStreaming}
             onKeyDown={handleKeyPress}
           />
-          <SearchSettings />
+          <SearchSettings 
+            searchOptions={searchOptions}
+            onSearchOptionsChange={setSearchOptions}
+            dataset={dataset}
+            onDatasetChange={setDataset}
+          />
           <Button size="icon" onClick={handleSendMessage} disabled={isLoading || isStreaming}>
             <Send className="h-4 w-4" />
             <span className="sr-only">Send message</span>
