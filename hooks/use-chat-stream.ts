@@ -18,19 +18,25 @@ export const useChatStream = () => {
   const { setStreamingMessageId } = useUIStore();
   const { toast } = useToast();
 
-  const cleanup = useCallback(() => {
+  const cleanupConnection = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+  }, []);
+
+  const cleanupState = useCallback(() => {
     setIsStreaming(false);
     setStreamingState(null);
     setStreamingMessageId(null);
   }, [setStreamingMessageId]);
 
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    return () => {
+      cleanupConnection();
+      cleanupState();
+    };
+  }, [cleanupConnection, cleanupState]);
 
   const sendMessage = useCallback(async (
     content: string, 
@@ -42,7 +48,7 @@ export const useChatStream = () => {
       return;
     }
 
-    cleanup();
+    cleanupConnection();
     setIsStreaming(true);
 
     const request: SendMessageRequest = {
@@ -54,15 +60,16 @@ export const useChatStream = () => {
 
     try {
       const response = await chatAPI.sendMessage(request);
-      if (!response.body) {
-        throw new Error('No response body');
-      }
+      if (!response.body) throw new Error('No response body');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let newSessionId: string | null = null;
       let messageContent: string | null = null;
       let messageCitations: Citation[] = [];
+
+      // Get initial messages (user message should be here)
+      const initialMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -79,19 +86,80 @@ export const useChatStream = () => {
               const data = JSON.parse(line.slice(6));
               console.log('Received event:', data);
 
+              // Handle session creation first
+              if (data.session_id && !activeChatId) {
+                newSessionId = data.session_id;
+                
+                // Create new session with title if provided
+                const newSession: ChatSession = {
+                  id: data.session_id,
+                  title: data.title || 'New conversation',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  user_id: 'user',
+                  metadata: {},
+                  relevant_documents: []
+                };
+
+                // Update sessions list first
+                queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
+                  if (!oldData) return { sessions: [newSession], total_count: 1 };
+                  return {
+                    ...oldData,
+                    sessions: [...oldData.sessions, newSession],
+                    total_count: oldData.total_count + 1
+                  };
+                });
+
+                // Force immediate refetch of sessions
+                queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
+
+                // Set initial messages in new session
+                const updatedMessages = initialMessages.map(msg => ({
+                  ...msg,
+                  session_id: data.session_id
+                }));
+                queryClient.setQueryData(['chatMessages', data.session_id], updatedMessages);
+
+                // Set active chat ID last to ensure all data is ready
+                setActiveChatId(data.session_id);
+              }
+
+              // Update session title if it comes later
+              if (data.title && newSessionId) {
+                queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
+                  if (!oldData) return oldData;
+                  return {
+                    ...oldData,
+                    sessions: oldData.sessions.map(session => 
+                      session.id === newSessionId 
+                        ? { ...session, title: data.title } 
+                        : session
+                    )
+                  };
+                });
+                // Force immediate refetch after title update
+                queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
+              }
+
+              // Handle status updates
               if (data.status) {
                 const status = data.status.toLowerCase();
-                if (status.includes('retrieving') || status.includes('analyzing') || status.includes('searching')) {
+                if (status.includes('creating')) {
+                  setStreamingState('creating-session');
+                } else if (status.includes('analyzing') || status.includes('retrieving') || status.includes('searching')) {
                   setStreamingState('analyzing-documents');
                 } else if (status.includes('complete')) {
                   setStreamingState(null);
                 }
-              } else if (data.content) {
+              }
+
+              // Handle content streaming
+              if (data.content) {
                 messageContent = data.content;
                 if (data.citations) {
                   messageCitations = data.citations;
-                  console.log('Raw citations from API:', messageCitations);
-                  
+
                   // Convert citations to document references
                   const newReferences: DocumentReference[] = messageCitations.map(citation => ({
                     document_id: citation.document_id,
@@ -100,45 +168,40 @@ export const useChatStream = () => {
                     page_number: citation.page_number,
                     filename: citation.filename
                   }));
-                  console.log('Converted document references:', newReferences);
-                  
-                  // Update the session with new document references
-                  queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
-                    if (!oldData) return oldData;
-                    
-                    return {
-                      ...oldData,
-                      sessions: oldData.sessions.map(session => {
-                        if (session.id === (newSessionId || activeChatId)) {
-                          // Combine existing and new references, deduplicating by document_id
-                          const allReferences = [...(session.relevant_documents || []), ...newReferences];
-                          const uniqueReferences = Array.from(
-                            new Map(allReferences.map(doc => [doc.document_id, doc])).values()
-                          );
-                          
-                          return {
-                            ...session,
-                            relevant_documents: uniqueReferences
-                          };
-                        }
-                        return session;
-                      })
-                    };
-                  });
 
-                  // Also update the documents query directly
-                  queryClient.setQueryData<DocumentReference[]>(['documents', newSessionId || activeChatId], (oldData) => {
-                    if (!oldData) return newReferences;
-                    
-                    // Combine existing and new references, deduplicating by document_id
-                    const allReferences = [...oldData, ...newReferences];
-                    return Array.from(
-                      new Map(allReferences.map(doc => [doc.document_id, doc])).values()
-                    );
-                  });
+                  const targetSessionId = newSessionId || activeChatId;
+                  if (targetSessionId) {
+                    // Update session with new document references
+                    queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
+                      if (!oldData) return oldData;
+                      return {
+                        ...oldData,
+                        sessions: oldData.sessions.map(session => {
+                          if (session.id === targetSessionId) {
+                            const allReferences = [...(session.relevant_documents || []), ...newReferences];
+                            const uniqueReferences = Array.from(
+                              new Map(allReferences.map(doc => [doc.document_id, doc])).values()
+                            );
+                            return {
+                              ...session,
+                              relevant_documents: uniqueReferences
+                            };
+                          }
+                          return session;
+                        })
+                      };
+                    });
+
+                    // Update documents query directly
+                    queryClient.setQueryData<DocumentReference[]>(['documents', targetSessionId], (oldDocs = []) => {
+                      const allDocs = [...oldDocs, ...newReferences];
+                      return Array.from(
+                        new Map(allDocs.map(doc => [doc.document_id, doc])).values()
+                      );
+                    });
+                  }
                 }
 
-                // Only create message if we have content
                 if (messageContent) {
                   const messageId = Date.now().toString();
                   const assistantMessage: ChatMessage = {
@@ -152,16 +215,12 @@ export const useChatStream = () => {
                     cited_documents: messageCitations
                   };
 
-                  queryClient.setQueryData(['chatMessages', newSessionId || activeChatId], (oldData: ChatMessage[] | undefined) => {
-                    if (!oldData) return [assistantMessage];
-                    return [...oldData, assistantMessage];
-                  });
+                  const targetSessionId = newSessionId || activeChatId;
+                  if (targetSessionId) {
+                    const currentMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', targetSessionId]) || [];
+                    queryClient.setQueryData(['chatMessages', targetSessionId], [...currentMessages, assistantMessage]);
+                  }
                 }
-              } else if (data.session_id && !activeChatId) {
-                newSessionId = data.session_id;
-                setActiveChatId(data.session_id);
-              } else if (data.title && newSessionId) {
-                queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
               }
             } catch (error) {
               console.error('Error parsing SSE data:', error);
@@ -177,15 +236,15 @@ export const useChatStream = () => {
         variant: 'destructive',
       });
     } finally {
-      cleanup();
+      cleanupState();
     }
-  }, [activeChatId, setActiveChatId, queryClient, cleanup, toast, isStreaming]);
+  }, [activeChatId, setActiveChatId, queryClient, cleanupConnection, cleanupState, toast, isStreaming]);
 
   return { 
     sendMessage, 
     isStreaming,
     streamingState,
-    cancelStream: cleanup
+    cancelStream: cleanupConnection
   };
 }
 

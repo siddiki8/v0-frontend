@@ -5,16 +5,21 @@ import { Header } from '@/components/layout/header'
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="w-64 border-r bg-background flex flex-col">
-        <Header />
+    <div className="grid h-screen" style={{ 
+      gridTemplateColumns: '256px 1fr 256px',
+      gridTemplateRows: 'auto 1fr'
+    }}>
+      <Header />
+      <div className="border-b" />
+      <SidebarOptions />
+
+      <div className="border-r bg-background overflow-auto">
         <SessionsSidebar />
       </div>
-      <main className="flex-1 overflow-hidden">
+      <main className="overflow-auto">
         {children}
       </main>
-      <div className="w-64 border-l bg-background flex flex-col">
-        <SidebarOptions />
+      <div className="border-l bg-background overflow-auto">
         <DocumentsSidebar />
       </div>
     </div>

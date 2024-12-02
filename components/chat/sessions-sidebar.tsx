@@ -19,8 +19,9 @@ export function SessionsSidebar() {
 
   const handleNewChat = () => {
     setActiveChatId(null)
-    // Clear messages for the current session
+    // Clear messages for the current session and temp storage
     queryClient.setQueryData(['chatMessages', activeChatId], [])
+    queryClient.setQueryData(['chatMessages', 'temp'], [])
   }
 
   const handleDeleteSession = async (sessionId: string) => {

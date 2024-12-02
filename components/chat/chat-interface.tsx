@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef, useCallback, memo } from 'react'
+import { useState, useRef, useCallback, memo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useSessionStore } from '@/lib/stores/session-store'
 import { useUIStore } from '@/lib/stores/ui-store'
-import { Send, User, Bot, FileText, Files } from 'lucide-react'
+import { Send, User, Bot, FileText, Files, PencilIcon } from 'lucide-react'
 import { SearchSettings, SearchOptions, DatasetDisplayName, DATASET_MAP } from '@/components/chat/search-settings'
 import { ChatMessage, Citation } from '@/types/api'
 import ReactMarkdown from 'react-markdown'
@@ -33,6 +33,13 @@ const PulsingDocumentIcon = () => (
   <div className="flex space-x-1 items-center text-muted-foreground text-sm">
     <Files className="h-4 w-4 text-blue-500 animate-pulse mr-1.5" />
     <span>Analyzing Documents...</span>
+  </div>
+)
+
+const PulsingPencilIcon = () => (
+  <div className="flex space-x-1 items-center text-muted-foreground text-sm">
+    <PencilIcon className="h-4 w-4 text-blue-500 animate-pulse mr-1.5" />
+    <span>Creating Session...</span>
   </div>
 )
 
@@ -116,6 +123,7 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
         <div 
           key={message.id} 
           className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} gap-3`}
+          data-user-message={message.role === 'user' || undefined}
         >
           {message.role === 'assistant' && (
             <div className="flex-shrink-0 mt-1">
@@ -157,6 +165,8 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
             <div className="prose prose-sm dark:prose-invert">
               {streamingState === 'analyzing-documents' ? (
                 <PulsingDocumentIcon />
+              ) : streamingState === 'creating-session' ? (
+                <PulsingPencilIcon />
               ) : (
                 <PulsingDots />
               )}
@@ -177,6 +187,18 @@ export function ChatInterface() {
   const queryClient = useQueryClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Preserve height during streaming to prevent layout shifts
+  const [containerHeight, setContainerHeight] = useState<number | null>(null)
+  
+  useEffect(() => {
+    if (containerRef.current && isStreaming) {
+      setContainerHeight(containerRef.current.offsetHeight)
+    } else if (!isStreaming) {
+      setContainerHeight(null)
+    }
+  }, [isStreaming])
 
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({
     search_type: "similarity",
@@ -186,7 +208,35 @@ export function ChatInterface() {
   const [dataset, setDataset] = useState<DatasetDisplayName>('finance')
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [])
+
+  const scrollForReading = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      const viewport = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (!viewport) return;
+
+      // Find the last user message
+      const userMessages = containerRef.current.querySelectorAll('[data-user-message="true"]');
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      if (!lastUserMessage) return;
+
+      // Calculate position to place user message at 40% from top of viewport
+      const viewportHeight = viewport.clientHeight;
+      const userMessageTop = lastUserMessage.getBoundingClientRect().top;
+      const viewportTop = viewport.getBoundingClientRect().top;
+      const currentScroll = viewport.scrollTop;
+      const targetFromTop = viewportHeight * 0.4;
+      const scrollPosition = currentScroll + (userMessageTop - viewportTop - targetFromTop);
+
+      viewport.scrollTo({
+        top: Math.max(0, scrollPosition),
+        behavior: 'smooth'
+      });
+    });
   }, [])
 
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
@@ -196,8 +246,24 @@ export function ChatInterface() {
       const { messages } = await chatAPI.getSessionDetails(activeChatId)
       return messages
     },
-    enabled: !!activeChatId
+    enabled: !!activeChatId,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false
   })
+
+  // Watch for new AI messages and scroll
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
+
+    if (lastMessage.role === 'assistant' && !isStreaming) {
+      requestAnimationFrame(() => {
+        setTimeout(scrollForReading, 100);
+      });
+    }
+  }, [messages, isStreaming, scrollForReading]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
@@ -223,27 +289,27 @@ export function ChatInterface() {
       cited_documents: []
     }
 
-    // Get current messages
-    const currentMessages = messages || []
-    
-    // Add message to UI immediately
-    queryClient.setQueryData(['chatMessages', activeChatId], [...currentMessages, optimisticMessage])
+    // Always store the optimistic message in the current context
+    queryClient.setQueryData<ChatMessage[]>(['chatMessages', activeChatId || 'temp'], 
+      (oldMessages = []) => [...oldMessages, optimisticMessage]
+    )
     
     // Scroll to bottom after optimistic update
     setTimeout(scrollToBottom, 0)
 
     try {
-      // Map the display name to the actual dataset ID
       await sendMessage(messageContent, searchOptions, DATASET_MAP[dataset])
     } catch (error) {
       setError('Failed to send message')
       // Revert optimistic update on error
-      queryClient.setQueryData(['chatMessages', activeChatId], currentMessages)
-      setInput(messageContent) // Restore the input on error
+      queryClient.setQueryData<ChatMessage[]>(['chatMessages', activeChatId || 'temp'], 
+        (oldMessages = []) => oldMessages.filter(m => m.id !== optimisticMessage.id)
+      )
+      setInput(messageContent)
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, activeChatId, messages, queryClient, sendMessage, setError, setIsLoading, scrollToBottom, searchOptions, dataset])
+  }, [input, isLoading, activeChatId, queryClient, sendMessage, setError, setIsLoading, scrollToBottom, searchOptions, dataset])
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -253,35 +319,38 @@ export function ChatInterface() {
   }, [handleSendMessage])
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="p-4 space-y-6">
-            {isLoadingMessages ? (
-              <LoadingMessages />
-            ) : messages.length === 0 ? (
-              <p className="text-center text-muted-foreground">No messages yet</p>
-            ) : (
-              <MessageList 
-                messages={messages} 
-                isStreaming={isStreaming} 
-                streamingState={streamingState} 
-              />
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
-      </div>
-      <div className="flex-shrink-0 border-t bg-background p-4">
+    <div 
+      ref={containerRef}
+      className="flex flex-col h-full"
+      style={containerHeight ? { height: `${containerHeight}px` } : undefined}
+    >
+      <ScrollArea className="flex-1 min-h-0 relative">
+        <div className="p-4 space-y-6">
+          {isLoadingMessages ? (
+            <LoadingMessages />
+          ) : (
+            <MessageList 
+              messages={messages.length > 0 ? messages : (
+                queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || []
+              )} 
+              isStreaming={isStreaming} 
+              streamingState={streamingState} 
+            />
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+      <div className="flex-shrink-0 border-t bg-background p-4 relative z-10">
         <div className="flex items-center space-x-2">
           <Textarea
             ref={inputRef}
             value={input}
             onChange={handleInputChange}
             placeholder="Type your message..."
-            className="flex-grow"
+            className="flex-grow resize-none"
             disabled={isLoading || isStreaming}
             onKeyDown={handleKeyPress}
+            rows={1}
           />
           <SearchSettings 
             searchOptions={searchOptions}
