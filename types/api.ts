@@ -25,6 +25,7 @@ export interface DocumentReference {
   chunk_index: ChunkIndex;
   document_name: string;
   page_number?: number;
+  filename: string;
 }
 
 // Chat Types
@@ -33,6 +34,7 @@ export interface Citation {
   chunk_index: number;
   document_name: string;
   page_number?: number;
+  filename: string;
 }
 
 export interface ChatMessage {
