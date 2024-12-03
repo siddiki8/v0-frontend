@@ -120,3 +120,13 @@ export interface CustomEventSource {
   connect(): Promise<void>;
 }
 
+// Add these interfaces
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface APIErrorResponse {
+  detail: string;
+}
+

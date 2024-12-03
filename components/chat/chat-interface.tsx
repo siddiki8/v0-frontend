@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useSessionStore } from '@/lib/stores/session-store'
 import { useUIStore } from '@/lib/stores/ui-store'
-import { Send, User, Bot, FileText, Files, PencilIcon } from 'lucide-react'
+import { Send, User, Bot, FileText, Files, PencilIcon, InfoIcon } from 'lucide-react'
 import { SearchSettings, SearchOptions, DatasetDisplayName, DATASET_MAP } from '@/components/chat/search-settings'
 import { ChatMessage, Citation } from '@/types/api'
 import ReactMarkdown from 'react-markdown'
@@ -217,6 +217,38 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
 })
 MessageList.displayName = 'MessageList'
 
+const WelcomeMessage = () => (
+  <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto px-4 text-center space-y-6">
+    <div className="flex gap-4">
+      <Bot className="h-12 w-12 text-blue-500" />
+      <Files className="h-12 w-12 text-blue-500" />
+    </div>
+    <h2 className="text-2xl font-bold tracking-tight">Welcome to the RAG Demo</h2>
+    <div className="text-muted-foreground space-y-4">
+      <p>
+        This is a demonstration of a Retrieval-Augmented Generation (RAG) application 
+        built with Next.js and a custom python fastapi backend. The backend is using llama hosted on together.ai for chat responses.
+      </p>
+      <p>
+        The chatbot can access and reference documents from selected datasets containing 
+        public information. All data used in this demo is from publicly available sources.
+      </p>
+      <div className="bg-muted/50 p-4 rounded-lg text-sm">
+        <p className="font-medium mb-2 flex items-center gap-2">
+          <InfoIcon className="h-4 w-4 text-blue-500" />
+          Important Disclaimers:
+        </p>
+        <ul className="list-disc list-inside space-y-1 text-left">
+          <li>This is a demonstration only and should not be used for production purposes</li>
+          <li>Do not share any confidential or sensitive information</li>
+          <li>The responses are AI-generated and may not be entirely accurate</li>
+          <li>Document datasets are pre-populated with public data for demo purposes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+)
+
 export function ChatInterface() {
   const { activeChatId } = useSessionStore()
   const { isLoading, setIsLoading, error, setError } = useUIStore()
@@ -357,28 +389,28 @@ export function ChatInterface() {
   }, [handleSendMessage])
 
   return (
-    <div 
-      ref={containerRef}
-      className="flex flex-col h-full"
-      style={containerHeight ? { height: `${containerHeight}px` } : undefined}
-    >
-      <ScrollArea className="flex-1 min-h-0 relative">
-        <div className="p-4 space-y-6">
-          {isLoadingMessages ? (
-            <LoadingMessages />
-          ) : (
-            <MessageList 
-              messages={messages.length > 0 ? messages : (
-                queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || []
-              )} 
-              isStreaming={isStreaming} 
-              streamingState={streamingState} 
-            />
-          )}
-          <div ref={messagesEndRef} />
+    <div className="relative flex h-full flex-col">
+      <ScrollArea className="flex-1 bg-secondary p-4">
+        <div ref={containerRef} style={{ minHeight: containerHeight || undefined }}>
+          <div className="p-4 space-y-6">
+            {isLoadingMessages ? (
+              <LoadingMessages />
+            ) : messages.length === 0 && !queryClient.getQueryData(['chatMessages', 'temp']) ? (
+              <WelcomeMessage />
+            ) : (
+              <MessageList 
+                messages={messages.length > 0 ? messages : (
+                  queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || []
+                )} 
+                isStreaming={isStreaming} 
+                streamingState={streamingState} 
+              />
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
       </ScrollArea>
-      <div className="flex-shrink-0 border-t bg-background p-4 relative z-10">
+      <div className="flex-shrink-0 border-t bg-secondary p-4 relative z-10">
         <div className="flex items-center space-x-2">
           <Textarea
             ref={inputRef}

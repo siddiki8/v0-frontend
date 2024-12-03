@@ -54,7 +54,7 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} overflow-hidden h-screen`}>
+      <body className={`${inter.className}`}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider
             attribute="class"

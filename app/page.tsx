@@ -1,14 +1,31 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowRight, BarChart, Lock, Zap, FileText, Brain, Cog, ChevronRight } from 'lucide-react'
 
-export default function LandingPage() {
+export default function HomePage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const session = useAuthStore(state => state.session)
+
+  // Only allow explicit redirects, and never redirect if we're on the home page
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (session && params.get('redirect') === 'chat' && pathname !== '/') {
+      router.push('/chat')
+    }
+  }, [session, router, pathname])
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-14 items-center">
           <div className="mr-4 hidden md:flex">
             <Link className="mr-6 flex items-center space-x-2" href="/">
               <span className="hidden font-bold sm:inline-block">RAG Consulting</span>
@@ -28,8 +45,8 @@ export default function LandingPage() {
       </header>
       <main className="flex-1">
         <section id="hero" className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-black text-white">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_800px] lg:gap-12 xl:grid-cols-[1fr_800px]">
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
@@ -52,11 +69,11 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center justify-center">
                 <Image
-                  src="/placeholder.svg?height=400&width=400"
+                  src="/rag-demo-screenshot.png"
                   alt="RAG Demo Screenshot"
-                  width={400}
-                  height={400}
-                  className="rounded-lg object-cover"
+                  width={800}
+                  height={800}
+                  className="rounded-lg object-cover shadow-xl"
                 />
               </div>
             </div>
@@ -64,13 +81,13 @@ export default function LandingPage() {
         </section>
 
         <section id="technology" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">
               RAG Architecture
             </h2>
             <div className="flex justify-center mb-12">
               <Image
-                src="/placeholder.svg?height=400&width=800"
+                src="/rag-architecture.png"
                 alt="RAG Architecture Diagram"
                 width={800}
                 height={400}
@@ -113,7 +130,7 @@ export default function LandingPage() {
         </section>
 
         <section id="industries" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-800">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">
               Industry Solutions
             </h2>
@@ -170,7 +187,7 @@ export default function LandingPage() {
         </section>
 
         <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">
               Features & Benefits
             </h2>
@@ -210,7 +227,7 @@ export default function LandingPage() {
         </section>
 
         <section id="process" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-800">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">
               Our Consultation Process
             </h2>
@@ -244,7 +261,7 @@ export default function LandingPage() {
         </section>
 
         <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-primary text-primary-foreground">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col items-center space-y-4 text-center">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
                 Ready to Transform Your Enterprise Knowledge?
@@ -265,7 +282,7 @@ export default function LandingPage() {
         </section>
 
         <section id="contact" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col items-center space-y-4 text-center">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
                 Stay Updated
@@ -287,7 +304,7 @@ export default function LandingPage() {
         </section>
       </main>
       <footer className="w-full py-6 bg-gray-100 dark:bg-gray-800">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
             <div>
               <h3 className="text-lg font-semibold mb-2">RAG Consulting</h3>

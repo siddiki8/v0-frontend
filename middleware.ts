@@ -36,8 +36,7 @@ export async function middleware(req: NextRequest) {
 
     // If has session and on login page, redirect to intended destination or chat
     if (session && (
-      req.nextUrl.pathname === '/login' ||
-      req.nextUrl.pathname === '/'
+      req.nextUrl.pathname === '/login'
     )) {
       console.log('Middleware - Redirecting to chat')
       const redirectTo = req.nextUrl.searchParams.get('redirect') || '/chat'

@@ -92,8 +92,6 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Auth Store - Sign in successful');
           
-          // Redirect to chat page after successful login
-          window.location.href = '/chat';
         } catch (error) {
           console.error('Auth Store - Sign in error:', error);
           throw error;

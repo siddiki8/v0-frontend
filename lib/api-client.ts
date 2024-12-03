@@ -6,7 +6,9 @@ import {
   ChatSessionResponse, 
   SendMessageRequest,
   SearchOptions,
-  DocumentResponse
+  DocumentResponse,
+  DeleteAccountResponse,
+  APIErrorResponse
 } from '@/types/api';
 
 // Number of retries for failed requests
@@ -114,6 +116,16 @@ class CustomEventSource {
         listener(new MessageEvent('error', { data: error }))
       );
     }
+  }
+}
+
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message);
+    this.name = 'APIError';
   }
 }
 
@@ -238,6 +250,21 @@ class ChatAPI {
     }
 
     return response.json();
+  }
+
+  async deleteAccount(): Promise<DeleteAccountResponse> {
+    try {
+      const { data } = await this.client.delete<DeleteAccountResponse>('/user');
+      return data;
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        throw new APIError(
+          error.response?.data?.detail || 'Failed to delete account',
+          error.response?.status || 500
+        );
+      }
+      throw new APIError('Failed to delete account', 500);
+    }
   }
 }
 

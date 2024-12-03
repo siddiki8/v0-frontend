@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function LoginPage() {
   const { signIn, signUp, loading } = useAuthStore()
+  const router = useRouter()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,12 +28,14 @@ export default function LoginPage() {
           title: "Account created",
           description: "Your account has been created successfully.",
         })
+        router.push('/chat')
       } else {
         await signIn(email, password)
         toast({
           title: "Welcome back",
           description: "You have been signed in successfully.",
         })
+        router.push('/chat')
       }
     } catch (error) {
       toast({
