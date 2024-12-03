@@ -103,13 +103,13 @@ export function SessionsSidebar() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/90 hover:text-destructive-foreground z-10 h-7 w-7"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/90 z-10 h-7 w-7"
                           disabled={deletingSessionId === session.id}
                         >
                           {deletingSessionId === session.id ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
                           ) : (
-                            <Trash2 className="h-4 w-4 text-destructive group-hover:text-destructive-foreground" />
+                            <Trash2 className="h-4 w-4 !text-foreground dark:!text-destructive-foreground hover:!text-white" />
                           )}
                         </Button>
                       </AlertDialogTrigger>
