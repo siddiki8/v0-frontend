@@ -18,7 +18,7 @@ export default function HomePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (session && params.get('redirect') === 'chat' && pathname !== '/') {
-      router.push('chat')
+      router.push('/chat')
     }
   }, [session, router, pathname])
 

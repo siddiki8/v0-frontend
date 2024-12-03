@@ -17,6 +17,14 @@ interface AuthState {
   initialize: () => Promise<void>
 }
 
+const setCookie = (name: string, value: string) => {
+  document.cookie = `${name}=${value}; path=/; SameSite=Lax; Secure`;
+}
+
+const deleteCookie = (name: string) => {
+  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -91,6 +99,11 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
           
           console.log('Auth Store - Sign in successful');
+          
+          // Add explicit redirect after successful sign in
+          if (typeof window !== 'undefined') {
+            window.location.href = '/chat';
+          }
           
         } catch (error) {
           console.error('Auth Store - Sign in error:', error);
