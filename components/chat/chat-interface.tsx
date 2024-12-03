@@ -10,6 +10,8 @@ import { Send, User, Bot, FileText, Files, PencilIcon, InfoIcon } from 'lucide-r
 import { SearchSettings, SearchOptions, DatasetDisplayName, DATASET_MAP } from '@/components/chat/search-settings'
 import { ChatMessage, Citation } from '@/types/api'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useChatStream } from '@/hooks/use-chat-stream'
@@ -98,31 +100,31 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
   isStreaming: boolean, 
   streamingState: StreamingState | null 
 }) => {
-  const renderCitations = (citations: Citation[]) => {
-    const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null)
-    const { toast } = useToast()
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null)
+  const { toast } = useToast()
 
-    const handleCitationClick = async (citation: Citation, index: number) => {
-      if (downloadingIndex !== null) return
-      
-      setDownloadingIndex(index)
-      try {
-        await downloadDocument(citation.document_id)
-        toast({
-          title: "Success",
-          description: `Downloaded ${citation.filename}`,
-        })
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to download document",
-          variant: "destructive",
-        })
-      } finally {
-        setDownloadingIndex(null)
-      }
+  const handleCitationClick = async (citation: Citation, index: number) => {
+    if (downloadingIndex !== null) return
+    
+    setDownloadingIndex(index)
+    try {
+      await downloadDocument(citation.document_id)
+      toast({
+        title: "Document downloaded successfully",
+        variant: "default"
+      })
+    } catch (error) {
+      toast({
+        title: "Failed to download document",
+        description: "Please try again later",
+        variant: "destructive"
+      })
+    } finally {
+      setDownloadingIndex(null)
     }
+  }
 
+  const renderCitations = (citations: Citation[]) => {
     return (
       <div className="flex flex-wrap gap-2 mt-2">
         {citations.map((citation, index) => (
@@ -171,8 +173,8 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
           <div 
             className={
               message.role === 'user' 
-                ? 'max-w-[80%] bg-muted text-foreground rounded-2xl px-4 py-2 hover:bg-muted/70 transition-colors' 
-                : 'max-w-[80%] text-foreground hover:bg-muted/50 rounded-md p-4 transition-colors relative group'
+                ? 'max-w-[80%] bg-[hsl(var(--chat-bubble))] text-foreground rounded-2xl px-4 py-2 hover:bg-[hsl(var(--chat-bubble))]/70 transition-colors' 
+                : 'max-w-[80%] text-foreground hover:bg-[hsl(var(--chat-bubble))]/50 rounded-md p-4 transition-colors relative group'
             }
           >
             {message.role === 'user' ? (
@@ -180,7 +182,28 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
             ) : (
               <>
                 <div className="prose prose-sm dark:prose-invert">
-                  <ReactMarkdown>{message.content || ''}</ReactMarkdown>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      table: ({ node, ...props }) => (
+                        <div className="overflow-auto my-4">
+                          <table className="border-collapse w-full" {...props} />
+                        </div>
+                      ),
+                      th: ({ node, ...props }) => (
+                        <th className="border border-border bg-muted/50 px-4 py-2 text-left" {...props} />
+                      ),
+                      td: ({ node, ...props }) => (
+                        <td className="border border-border px-4 py-2" {...props} />
+                      ),
+                      hr: ({ node, ...props }) => (
+                        <hr className="my-4 border-t border-border" {...props} />
+                      )
+                    }}
+                  >
+                    {message.content || ''}
+                  </ReactMarkdown>
                 </div>
                 {message.cited_documents && message.cited_documents.length > 0 && renderCitations(message.cited_documents)}
                 <CopyButton text={message.content || ''} />
@@ -390,7 +413,7 @@ export function ChatInterface() {
 
   return (
     <div className="relative flex h-full flex-col">
-      <ScrollArea className="flex-1 bg-secondary p-4">
+      <ScrollArea className="flex-1 bg-[hsl(var(--chat-background))] p-4">
         <div ref={containerRef} style={{ minHeight: containerHeight || undefined }}>
           <div className="p-4 space-y-6">
             {isLoadingMessages ? (
@@ -410,7 +433,7 @@ export function ChatInterface() {
           </div>
         </div>
       </ScrollArea>
-      <div className="flex-shrink-0 border-t bg-secondary p-4 relative z-10">
+      <div className="flex-shrink-0 border-t bg-[hsl(var(--chat-background))] p-4 relative z-10">
         <div className="flex items-center space-x-2">
           <Textarea
             ref={inputRef}

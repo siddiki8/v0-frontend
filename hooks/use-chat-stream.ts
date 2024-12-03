@@ -67,33 +67,39 @@ export const useChatStream = () => {
       let newSessionId: string | null = null;
       let messageContent: string | null = null;
       let messageCitations: Citation[] = [];
-
-      // Get initial messages (user message should be here)
-      const initialMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += chunk;
+        
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (!line.trim()) continue;
 
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
-              console.log('Received event:', data);
+              const jsonStr = line.slice(6);
+              
+              if (!jsonStr.trim().endsWith('}')) {
+                console.log('Incomplete JSON chunk detected, adding to buffer');
+                buffer = line + '\n' + buffer;
+                continue;
+              }
 
-              // Handle session creation first
+              const data = JSON.parse(jsonStr);
+              console.log('Successfully parsed event:', data);
+
               if (data.session_id && !activeChatId) {
                 newSessionId = data.session_id;
                 
-                // Get temp messages before changing active chat ID
                 const tempMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
                 
-                // Create new session
                 const newSession: ChatSession = {
                   id: data.session_id,
                   title: data.title || 'New conversation',
@@ -104,7 +110,6 @@ export const useChatStream = () => {
                   relevant_documents: []
                 };
 
-                // Update sessions list
                 queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
                   if (!oldData) return { sessions: [newSession], total_count: 1 };
                   return {
@@ -114,7 +119,6 @@ export const useChatStream = () => {
                   };
                 });
 
-                // Transfer temp messages to new session
                 if (tempMessages.length > 0) {
                   const updatedMessages = tempMessages.map(msg => ({
                     ...msg,
@@ -123,11 +127,9 @@ export const useChatStream = () => {
                   queryClient.setQueryData(['chatMessages', data.session_id], updatedMessages);
                 }
 
-                // Set active chat ID after setting up the session
                 setActiveChatId(data.session_id);
               }
 
-              // Update session title if it comes later
               if (data.title && newSessionId) {
                 queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
                   if (!oldData) return oldData;
@@ -140,11 +142,9 @@ export const useChatStream = () => {
                     )
                   };
                 });
-                // Force immediate refetch after title update
                 queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
               }
 
-              // Handle status updates
               if (data.status) {
                 const status = data.status.toLowerCase();
                 if (status.includes('creating')) {
@@ -156,13 +156,11 @@ export const useChatStream = () => {
                 }
               }
 
-              // Handle content streaming
               if (data.content) {
                 messageContent = data.content;
                 if (data.citations) {
                   messageCitations = data.citations;
 
-                  // Convert citations to document references
                   const newReferences: DocumentReference[] = messageCitations.map(citation => ({
                     document_id: citation.document_id,
                     chunk_index: citation.chunk_index,
@@ -173,7 +171,6 @@ export const useChatStream = () => {
 
                   const targetSessionId = newSessionId || activeChatId;
                   if (targetSessionId) {
-                    // Update session with new document references
                     queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
                       if (!oldData) return oldData;
                       return {
@@ -194,7 +191,6 @@ export const useChatStream = () => {
                       };
                     });
 
-                    // Update documents query directly
                     queryClient.setQueryData<DocumentReference[]>(['documents', targetSessionId], (oldDocs = []) => {
                       const allDocs = [...oldDocs, ...newReferences];
                       return Array.from(
@@ -219,10 +215,8 @@ export const useChatStream = () => {
 
                   const targetSessionId = newSessionId || activeChatId;
                   if (targetSessionId) {
-                    // Get current messages and ensure we keep the user message
                     const currentMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', targetSessionId]) || [];
                     if (currentMessages.length === 0) {
-                      // If no messages, check temp storage
                       const tempMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
                       queryClient.setQueryData(['chatMessages', targetSessionId], [...tempMessages, assistantMessage]);
                     } else {

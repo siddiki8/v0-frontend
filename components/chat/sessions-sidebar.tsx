@@ -82,7 +82,10 @@ export function SessionsSidebar() {
     <>
       <div className="flex flex-col h-full">
         <div className="p-4">
-          <Button className="w-full" onClick={handleNewChat}>
+          <Button 
+            className="w-full bg-[hsl(var(--new-chat-button))] hover:bg-[hsl(var(--new-chat-button))]/90" 
+            onClick={handleNewChat}
+          >
             <Plus className="w-4 h-4 mr-2" />
             New Chat
           </Button>

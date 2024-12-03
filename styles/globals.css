@@ -33,6 +33,10 @@
     --ring: 0 0% 3.9%;
 
     --radius: 0.5rem;
+
+    --chat-background: 0 0% 98%;
+    --chat-bubble: 213.8 100% 96.9%;
+    --new-chat-button: 240 10% 3.9%;
   }
 
   .dark {
@@ -63,6 +67,10 @@
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
+
+    --chat-background: 0 0% 9%;
+    --chat-bubble: 0 0% 14.9%;
+    --new-chat-button: 0 0% 98%;
   }
 
   .blue {
@@ -199,6 +207,38 @@
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
   @apply font-semibold text-foreground mb-4;
+}
+
+.prose hr {
+  @apply border-t border-border my-8;
+}
+
+.prose table {
+  @apply w-full my-6 border-collapse;
+}
+
+.prose table th {
+  @apply px-4 py-2 text-left border border-border bg-muted/50 font-semibold;
+}
+
+.prose table td {
+  @apply px-4 py-2 border border-border;
+}
+
+.prose table tr {
+  @apply hover:bg-muted/30 transition-colors;
+}
+
+.prose blockquote {
+  @apply pl-4 border-l-4 border-border italic my-4;
+}
+
+.prose hr {
+  @apply my-8 border-t border-border;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
 }
 
 .chat-message {
