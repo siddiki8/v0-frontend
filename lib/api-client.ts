@@ -5,7 +5,8 @@ import {
   ChatSessionListResponse, 
   ChatSessionResponse, 
   SendMessageRequest,
-  SearchOptions
+  SearchOptions,
+  DocumentResponse
 } from '@/types/api';
 
 // Number of retries for failed requests
@@ -121,7 +122,7 @@ class ChatAPI {
   private readonly baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     this.client = axios.create({
       baseURL: this.baseUrl,
       headers: {
@@ -216,6 +217,27 @@ class ChatAPI {
   // Expose the underlying axios instance for direct use in components
   get axiosInstance(): AxiosInstance {
     return this.client;
+  }
+
+  async getDocument(documentId: string): Promise<DocumentResponse> {
+    const session = await supabase.auth.getSession()
+    if (!session.data.session?.access_token) {
+      throw new Error('No auth token available')
+    }
+
+    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.data.session.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch document: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 }
 

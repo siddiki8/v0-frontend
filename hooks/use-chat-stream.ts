@@ -90,7 +90,10 @@ export const useChatStream = () => {
               if (data.session_id && !activeChatId) {
                 newSessionId = data.session_id;
                 
-                // Create new session with title if provided
+                // Get temp messages before changing active chat ID
+                const tempMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
+                
+                // Create new session
                 const newSession: ChatSession = {
                   id: data.session_id,
                   title: data.title || 'New conversation',
@@ -101,7 +104,7 @@ export const useChatStream = () => {
                   relevant_documents: []
                 };
 
-                // Update sessions list first
+                // Update sessions list
                 queryClient.setQueryData<ChatSessionListResponse>(['chatSessions'], (oldData) => {
                   if (!oldData) return { sessions: [newSession], total_count: 1 };
                   return {
@@ -111,17 +114,16 @@ export const useChatStream = () => {
                   };
                 });
 
-                // Force immediate refetch of sessions
-                queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
+                // Transfer temp messages to new session
+                if (tempMessages.length > 0) {
+                  const updatedMessages = tempMessages.map(msg => ({
+                    ...msg,
+                    session_id: data.session_id
+                  }));
+                  queryClient.setQueryData(['chatMessages', data.session_id], updatedMessages);
+                }
 
-                // Set initial messages in new session
-                const updatedMessages = initialMessages.map(msg => ({
-                  ...msg,
-                  session_id: data.session_id
-                }));
-                queryClient.setQueryData(['chatMessages', data.session_id], updatedMessages);
-
-                // Set active chat ID last to ensure all data is ready
+                // Set active chat ID after setting up the session
                 setActiveChatId(data.session_id);
               }
 
@@ -217,8 +219,15 @@ export const useChatStream = () => {
 
                   const targetSessionId = newSessionId || activeChatId;
                   if (targetSessionId) {
+                    // Get current messages and ensure we keep the user message
                     const currentMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', targetSessionId]) || [];
-                    queryClient.setQueryData(['chatMessages', targetSessionId], [...currentMessages, assistantMessage]);
+                    if (currentMessages.length === 0) {
+                      // If no messages, check temp storage
+                      const tempMessages = queryClient.getQueryData<ChatMessage[]>(['chatMessages', 'temp']) || [];
+                      queryClient.setQueryData(['chatMessages', targetSessionId], [...tempMessages, assistantMessage]);
+                    } else {
+                      queryClient.setQueryData(['chatMessages', targetSessionId], [...currentMessages, assistantMessage]);
+                    }
                   }
                 }
               }

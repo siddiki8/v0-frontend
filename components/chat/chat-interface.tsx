@@ -16,6 +16,8 @@ import { useChatStream } from '@/hooks/use-chat-stream'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import chatAPI from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { downloadDocument } from '@/lib/document-utils'
+import { useToast } from '@/hooks/use-toast'
 
 const PulsingDots = () => (
   <div className="flex space-x-1">
@@ -96,26 +98,62 @@ const MessageList = memo(({ messages, isStreaming, streamingState }: {
   isStreaming: boolean, 
   streamingState: StreamingState | null 
 }) => {
-  const renderCitations = (citations: Citation[]) => (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {citations.map((citation, index) => (
-        <TooltipProvider key={`${citation.document_id}-${citation.chunk_index}`}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="h-6 px-2 text-xs">
-                <FileText className="h-3 w-3 mr-1" />
-                [{index + 1}]
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{citation.document_name}</p>
-              <p>Page: {citation.page_number || 'N/A'}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ))}
-    </div>
-  )
+  const renderCitations = (citations: Citation[]) => {
+    const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null)
+    const { toast } = useToast()
+
+    const handleCitationClick = async (citation: Citation, index: number) => {
+      if (downloadingIndex !== null) return
+      
+      setDownloadingIndex(index)
+      try {
+        await downloadDocument(citation.document_id)
+        toast({
+          title: "Success",
+          description: `Downloaded ${citation.filename}`,
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to download document",
+          variant: "destructive",
+        })
+      } finally {
+        setDownloadingIndex(null)
+      }
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2 mt-2">
+        {citations.map((citation, index) => (
+          <TooltipProvider key={`${citation.document_id}-${citation.chunk_index}`}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 px-2 text-xs"
+                  onClick={() => handleCitationClick(citation, index)}
+                  disabled={downloadingIndex !== null}
+                >
+                  <FileText className={cn(
+                    "h-3 w-3 mr-1",
+                    downloadingIndex === index && "animate-pulse"
+                  )} />
+                  [{index + 1}] {citation.filename}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{citation.document_name}</p>
+                <p>Page: {citation.page_number || 'N/A'}</p>
+                <p>Chunk: {citation.chunk_index}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

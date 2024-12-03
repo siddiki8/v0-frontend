@@ -20,6 +20,14 @@ export interface Document {
   metadata: DocumentMetadata;
 }
 
+export interface DocumentResponse {
+  id: string;
+  download_url: string;
+  filename: string;
+  file_type: string;
+  metadata: DocumentMetadata;
+}
+
 export interface DocumentReference {
   document_id: DocumentId;
   chunk_index: ChunkIndex;
