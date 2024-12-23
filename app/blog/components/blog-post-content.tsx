@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { useEffect, useState } from 'react'
 
 type Post = {
   title: string;
@@ -17,6 +18,13 @@ interface BlogPostContentProps {
 }
 
 export function BlogPostContent({ post, content }: BlogPostContentProps) {
+  // Use state to handle client-side rendering of HTML content
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <main className="flex-1">
@@ -37,10 +45,16 @@ export function BlogPostContent({ post, content }: BlogPostContentProps) {
               <span>{post.date}</span>
             </div>
           </div>
-          <div 
-            className="prose dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: content }}
-          />
+          {mounted ? (
+            <div 
+              className="prose dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          ) : (
+            <div className="prose dark:prose-invert max-w-none">
+              <p>Loading content...</p>
+            </div>
+          )}
         </article>
       </main>
     </div>

@@ -1,6 +1,24 @@
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'RAG Consulting Blog - Latest Insights in RAG Technology',
+  description: 'Explore our latest thoughts on RAG technology, implementation strategies, and industry applications. Expert insights on enterprise knowledge management.',
+  openGraph: {
+    title: 'RAG Consulting Blog - Latest Insights in RAG Technology',
+    description: 'Explore our latest thoughts on RAG technology, implementation strategies, and industry applications.',
+    type: 'website',
+    url: 'https://ragconsulting.com/blog',
+    siteName: 'RAG Consulting',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RAG Consulting Blog - Latest Insights in RAG Technology',
+    description: 'Explore our latest thoughts on RAG technology, implementation strategies, and industry applications.',
+  }
+}
 
 // Blog posts from the markdown files
 const blogPosts = [
