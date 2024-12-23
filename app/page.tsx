@@ -34,6 +34,7 @@ export default function HomePage() {
               <Link href="#solutions">Solutions</Link>
               <Link href="#industries">Industries</Link>
               <Link href="#technology">Technology</Link>
+              <Link href="/blog">Blog</Link>
               <Link href="#about">About</Link>
               <Link href="#contact">Contact</Link>
             </nav>
